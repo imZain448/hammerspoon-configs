@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #e2e8f0;
+      }
+
+      .picker {
+        margin: 12px;
+        padding: 14px;
+        background: rgba(24, 25, 35, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 18px;
+        box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px;
+        font-size: 17px;
+        color: #e2e8f0;
+        background: transparent;
+        border: none;
+        outline: none;
+      }
+
+      input::placeholder {
+        color: #7c8398;
+      }
+
+      .divider {
+        height: 1px;
+        background: rgba(148, 163, 184, 0.15);
+        margin: 8px 0;
+      }
+
+      .item {
+        padding: 10px 12px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+      }
+
+      .item.selected {
+        background: rgba(118, 126, 161, 0.28);
+      }
+
+      .slot {
+        color: #93c5fd;
+        font-size: 14px;
+        min-width: 25px;
+      }
+
+      .details {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .name {
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .subtitle {
+        font-size: 12px;
+        color: #94a3b8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 3px;
+      }
+
+      .footer {
+        margin-top: 10px;
+        font-size: 11px;
+        color: #747d94;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="picker">
+      <input id="search" placeholder="⌕  Search Harpoon windows..." autofocus />
+
+      <div class="divider"></div>
+      <div id="list"></div>
+
+      <div class="footer">↑↓ Navigate · ↵ Select · ESC Close</div>
+    </div>
+
+    <script>
+      const search = document.getElementById("search");
+      const list = document.getElementById("list");
+
+      let windows = [];
+      let filtered = [];
+      let selected = 0;
+
+      function send(action, slot) {
+        window.webkit.messageHandlers.harpoon.postMessage({
+          action,
+          slot,
+        });
+      }
+
+      function render() {
+        list.replaceChildren();
+
+        filtered.forEach((item, i) => {
+          const row = document.createElement("div");
+          row.className = "item" + (i === selected ? " selected" : "");
+
+          const slot = document.createElement("span");
+          slot.className = "slot";
+          slot.textContent = item.slot;
+
+          const details = document.createElement("div");
+          details.className = "details";
+
+          const name = document.createElement("div");
+          name.className = "name";
+          name.textContent = item.name;
+
+          const title = document.createElement("div");
+          title.className = "subtitle";
+          title.textContent = item.title;
+
+          details.append(name, title);
+          row.append(slot, details);
+
+          row.onclick = () => send("select", item.slot);
+          row.onmouseenter = () => {
+            selected = i;
+            render();
+          };
+
+          list.appendChild(row);
+        });
+      }
+
+      function filter() {
+        const q = search.value.toLowerCase();
+
+        filtered = windows.filter((item) =>
+          (item.name + " " + item.title).toLowerCase().includes(q),
+        );
+
+        selected = 0;
+        render();
+      }
+
+      function setWindows(items) {
+        windows = items;
+        search.value = "";
+        filter();
+        search.focus();
+      }
+
+      search.addEventListener("input", filter);
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          selected = Math.min(selected + 1, filtered.length - 1);
+          render();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          selected = Math.max(selected - 1, 0);
+          render();
+        } else if (e.key === "Enter") {
+          if (filtered[selected]) {
+            send("select", filtered[selected].slot);
+          }
+        } else if (e.key === "Escape") {
+          send("close", null);
+        }
+      });
+
+      search.focus();
+    </script>
+  </body>
+</html>
