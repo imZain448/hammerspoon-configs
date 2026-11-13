@@ -18,11 +18,32 @@ local pickerConfig = {
 
 local picker = nil
 
+-- Window that had focus before the picker opened, restored on dismiss.
+local previousWindow = nil
+
 local pickerController = hs.webview.usercontent.new("harpoon")
 
-function M.close()
+local function hidePicker()
 	if picker then
 		picker:hide()
+	end
+
+	previousWindow = nil
+end
+
+-- Dismiss without selecting: hand focus back to the previous window,
+-- since Hammerspoon is left active with no visible window otherwise.
+function M.close()
+	if not (picker and picker:isVisible()) then
+		return
+	end
+
+	local win = previousWindow
+
+	hidePicker()
+
+	if win then
+		win:focus()
 	end
 end
 
@@ -39,7 +60,7 @@ pickerController:setCallback(function(message)
 	end
 
 	if data.action == "select" then
-		M.close()
+		hidePicker()
 
 		local slotKey = tostring(data.slot or "")
 		local slotNumber = tonumber(slotKey)
@@ -132,6 +153,7 @@ function M.toggle()
 	picker:windowCallback(function(action, view, state)
 		if action == "focusChange" and state == false then
 			view:hide()
+			previousWindow = nil
 		end
 	end)
 
@@ -144,7 +166,15 @@ function M.toggle()
 		end
 	end)
 
+	previousWindow = hs.window.focusedWindow()
+
 	picker:html(html)
+
+	-- A webview only becomes the key window if Hammerspoon is the active
+	-- app; otherwise keystrokes go to the app underneath. Activate first,
+	-- then show, so the picker is both frontmost and key.
+	hs.focus()
+
 	picker:show()
 	picker:bringToFront()
 end
